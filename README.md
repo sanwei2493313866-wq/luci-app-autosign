@@ -22,16 +22,50 @@
 2. 上传安装包 **`luci-app-autosign-1.0.0.run`**（自解压格式，100% 免疫任何包管理器差异）。
 3. 安装完成后，刷新网页，在左侧导航栏 **「服务」** 中即可看到 **「定时签到」**。
 
-### 2. OpenWrt 25.x (APK) 安装
-对于使用 apk-tools 的 OpenWrt 25+ 系统：
+### 2. 终端命令行安装
+将 `.run` 文件上传至路由器后执行：
 ```bash
-apk add --allow-untrusted luci-app-autosign-1.0.0-r1.apk
+sh luci-app-autosign-1.0.0.run install
 ```
 
-### 3. OpenWrt 21/23/24 (OPKG) 安装
+---
+
+## 🗑️ 卸载说明
+
+### 方式 1：终端一键彻底卸载（最推荐）
+登录路由器终端（或通过 Web 界面「服务」->「终端」），直接复制粘贴运行以下命令即可彻底卸载并清理全部缓存残留：
+
 ```bash
-opkg install luci-app-autosign_1.0.0-1_all.ipk
+/etc/init.d/autosign stop 2>/dev/null
+/etc/init.d/autosign disable 2>/dev/null
+sed -i '/autosign.sh/d' /etc/crontabs/root 2>/dev/null
+rm -rf /usr/share/autosign
+rm -f /usr/share/luci/menu.d/luci-app-autosign.json
+rm -f /usr/share/rpcd/acl.d/luci-app-autosign.json
+rm -rf /www/luci-static/resources/view/autosign
+rm -f /etc/init.d/autosign
+rm -f /etc/config/autosign
+rm -f /var/log/autosign.log
+rm -f /tmp/luci-indexcache /tmp/luci-modulecache/* 2>/dev/null
+/etc/init.d/rpcd restart 2>/dev/null
+echo "✅ luci-app-autosign 已彻底卸载完成！"
 ```
+
+### 方式 2：使用 `.run` 安装包卸载
+如果在路由器上有下载过安装包，直接传入 `uninstall` 参数即可自动卸载：
+```bash
+sh luci-app-autosign-1.0.0.run uninstall
+```
+
+### 方式 3：如果通过系统包管理器安装
+- **OpenWrt 25+ (APK 系统)**：
+  ```bash
+  apk del luci-app-autosign
+  ```
+- **OpenWrt 21/23/24 (OPKG 系统)**：
+  ```bash
+  opkg remove luci-app-autosign
+  ```
 
 ---
 
