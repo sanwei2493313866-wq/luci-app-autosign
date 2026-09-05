@@ -1,0 +1,54 @@
+#!/bin/sh /etc/rc.common
+# AutoSign Service & Cron Scheduler for OpenWrt
+
+START=95
+USE_PROCD=1
+
+CRON_FILE="/etc/crontabs/root"
+AUTOSIGN_BIN="/usr/share/autosign/autosign.sh"
+CMD="$AUTOSIGN_BIN run >/dev/null 2>&1"
+
+update_cron() {
+	local enabled run_hour run_minute
+	config_load autosign
+	config_get enabled global enabled '0'
+	config_get run_hour global run_hour '08'
+	config_get run_minute global run_minute '30'
+
+	mkdir -p /etc/crontabs
+	touch "$CRON_FILE"
+
+	# 清理旧的签到计划任务
+	sed -i '/autosign.sh/d' "$CRON_FILE" 2>/dev/null
+
+	if [ "$enabled" = "1" ]; then
+		# 去除前导 0 以符合标准 cron 格式 (如 08 -> 8)
+		local cron_min=$(echo "$run_minute" | sed 's/^0*//')
+		[ -z "$cron_min" ] && cron_min=0
+		local cron_hour=$(echo "$run_hour" | sed 's/^0*//')
+		[ -z "$cron_hour" ] && cron_hour=0
+
+		echo "$cron_min $cron_hour * * * $CMD" >> "$CRON_FILE"
+		logger -t autosign "已更新定时签到任务：每天 $cron_hour:$cron_min 执行"
+	else
+		logger -t autosign "定时签到已停用"
+	fi
+
+	/etc/init.d/cron restart >/dev/null 2>&1
+}
+
+start_service() {
+	update_cron
+}
+
+stop_service() {
+	if [ -f "$CRON_FILE" ]; then
+		sed -i '/autosign.sh/d' "$CRON_FILE" 2>/dev/null
+		/etc/init.d/cron restart >/dev/null 2>&1
+	fi
+	logger -t autosign "定时签到服务已停止"
+}
+
+reload_service() {
+	update_cron
+}
