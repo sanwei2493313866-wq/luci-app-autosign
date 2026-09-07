@@ -287,7 +287,14 @@ run_task() {
 }
 
 do_run() {
-	local force_mode="$1"
+	local target_task="${1:-all}"
+	local force_mode="$2"
+
+	if [ "$target_task" = "force" ]; then
+		target_task="all"
+		force_mode="force"
+	fi
+
 	rotate_log
 
 	config_load "$CONFIG_NAME"
@@ -302,50 +309,86 @@ do_run() {
 	config_get notify_secret global notify_secret ""
 
 	if [ "$force_mode" != "force" ] && [ "$global_enabled" -ne 1 ]; then
-		log "AutoSign 插件处于停用状态，跳过本次计划任务"
+		log "AutoSign 插件处于全局停用状态，跳过本次任务"
 		exit 0
 	fi
 
-	log "=================================================="
-	log ">>> AutoSign 签到任务开始启动 <<<"
-
-	if [ "$force_mode" != "force" ] && [ "$random_delay" -gt 0 ]; then
-		# 计算随机延迟（防风控检测）
-		local seed=$(awk 'BEGIN{srand(); print int(rand()*32768)}')
-		local delay=$(( seed % random_delay ))
-		log "已启用随机延迟，随机休眠 $delay 秒后开始签到..."
-		sleep "$delay"
-	fi
-
-	TOTAL_TASKS=0
-	SUCCESS_TASKS=0
-	FAILED_TASKS=0
-	SUMMARY_MSG=""
-
-	config_foreach run_task task
-
-	if [ "$TOTAL_TASKS" -eq 0 ]; then
-		log "未检测到任何已启用的签到任务！请在 Web 界面中添加并启用任务。"
-	else
-		log ">>> 签到完成: 共 $TOTAL_TASKS 个任务，成功: $SUCCESS_TASKS，失败: $FAILED_TASKS <<<"
+	if [ "$target_task" != "all" ]; then
+		# 单任务模式
+		local task_name
+		config_get task_name "$target_task" name "$target_task"
 		log "=================================================="
+		log ">>> AutoSign 定时任务 [$task_name] 启动 <<<"
 
-		local notify_title="OpenWrt 每日签到通知"
-		local notify_content="签到完成统计: 共 $TOTAL_TASKS 个任务，成功 $SUCCESS_TASKS 个，失败 $FAILED_TASKS 个。详情: $(echo -e "$SUMMARY_MSG")"
-		send_notify "$notify_title" "$notify_content" "$notify_type" "$notify_token" "$notify_secret"
+		if [ "$force_mode" != "force" ] && [ "$random_delay" -gt 0 ]; then
+			local seed=$(awk 'BEGIN{srand(); print int(rand()*32768)}')
+			local delay=$(( seed % random_delay ))
+			log "[$task_name] 已启用防封延迟，随机休眠 $delay 秒后开始执行..."
+			sleep "$delay"
+		fi
+
+		TOTAL_TASKS=0
+		SUCCESS_TASKS=0
+		FAILED_TASKS=0
+		SUMMARY_MSG=""
+
+		run_task "$target_task"
+
+		if [ "$TOTAL_TASKS" -eq 0 ]; then
+			log "[$task_name] 任务不存在或未启用！"
+		else
+			local status_str="失败"
+			[ "$SUCCESS_TASKS" -gt 0 ] && status_str="成功"
+			log ">>> 任务 [$task_name] 执行完成: $status_str <<<"
+			log "=================================================="
+
+			local notify_title="OpenWrt 签到提醒: [$task_name] $status_str"
+			local notify_content="任务 [$task_name] 执行完成，状态: $status_str。$(echo -e "$SUMMARY_MSG")"
+			send_notify "$notify_title" "$notify_content" "$notify_type" "$notify_token" "$notify_secret"
+		fi
+	else
+		# 全部任务模式
+		log "=================================================="
+		log ">>> AutoSign 全量签到任务启动 <<<"
+
+		if [ "$force_mode" != "force" ] && [ "$random_delay" -gt 0 ]; then
+			local seed=$(awk 'BEGIN{srand(); print int(rand()*32768)}')
+			local delay=$(( seed % random_delay ))
+			log "已启用随机延迟，随机休眠 $delay 秒后开始签到..."
+			sleep "$delay"
+		fi
+
+		TOTAL_TASKS=0
+		SUCCESS_TASKS=0
+		FAILED_TASKS=0
+		SUMMARY_MSG=""
+
+		config_foreach run_task task
+
+		if [ "$TOTAL_TASKS" -eq 0 ]; then
+			log "未检测到任何已启用的签到任务！请在 Web 界面中添加并启用任务。"
+		else
+			log ">>> 全量签到完成: 共 $TOTAL_TASKS 个任务，成功: $SUCCESS_TASKS，失败: $FAILED_TASKS <<<"
+			log "=================================================="
+
+			local notify_title="OpenWrt 每日签到通知"
+			local notify_content="签到完成统计: 共 $TOTAL_TASKS 个任务，成功 $SUCCESS_TASKS 个，失败 $FAILED_TASKS 个。详情: $(echo -e "$SUMMARY_MSG")"
+			send_notify "$notify_title" "$notify_content" "$notify_type" "$notify_token" "$notify_secret"
+		fi
 	fi
 }
 
 case "$1" in
 	run)
-		do_run "$2"
+		do_run "$2" "$3"
 		;;
 	clearlog)
 		echo "" > "$LOG_FILE"
 		log "日志已清空"
 		;;
 	*)
-		echo "用法: $0 {run [force]|clearlog}"
+		echo "用法: $0 {run [task_id|all] [force]|clearlog}"
 		exit 1
 		;;
 esac
+

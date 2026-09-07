@@ -20,25 +20,25 @@ return view.extend({
 			_('超轻量级 OpenWrt 定时自动签到插件。支持每日定时调度、随机防风控延迟、多任务 HTTP/脚本混合配置以及微信/Telegram 推送。'));
 
 		// ==================== 1. 基本与定时设置 ====================
-		var s_gen = m.section(form.NamedSection, 'global', 'autosign', _('基本与定时设置'));
+		var s_gen = m.section(form.NamedSection, 'global', 'autosign', _('基本与全局设置'));
 		s_gen.anonymous = true;
 		s_gen.addremove = false;
 
 		var o;
 
-		o = s_gen.option(form.Flag, 'enabled', _('启用定时签到'), _('开启后，插件将自动在每天设定时间触发签到任务'));
+		o = s_gen.option(form.Flag, 'enabled', _('启用定时签到服务'), _('总开关：开启后，各签到任务将在各自设定的时间独立自动运行'));
 		o.rmempty = false;
 
-		// 24 小时制小时选择
-		o = s_gen.option(form.ListValue, 'run_hour', _('每天签到时间 (小时)'), _('请选择每天执行签到的小时 (24小时制)'));
+		// 默认 24 小时制小时选择
+		o = s_gen.option(form.ListValue, 'default_run_hour', _('默认执行时间 (小时)'), _('新建任务时的默认小时 (每个任务可单独自定义时间)'));
 		for (var h = 0; h < 24; h++) {
 			var val = (h < 10 ? '0' : '') + h;
 			o.value(val, val + ' 点 (' + (h < 12 ? '上午' : '下午/晚上') + ')');
 		}
 		o.default = '08';
 
-		// 分钟选择
-		o = s_gen.option(form.ListValue, 'run_minute', _('每天签到时间 (分钟)'), _('请选择每天执行签到的分钟'));
+		// 默认分钟选择
+		o = s_gen.option(form.ListValue, 'default_run_minute', _('默认执行时间 (分钟)'), _('新建任务时的默认分钟'));
 		for (var min = 0; min < 60; min++) {
 			var val_min = (min < 10 ? '0' : '') + min;
 			o.value(val_min, val_min + ' 分');
@@ -61,12 +61,12 @@ return view.extend({
 		o.default = '60';
 
 		// ==================== 2. 签到任务管理 ====================
-		var s_tasks = m.section(form.GridSection, 'task', _('签到任务管理'), _('支持配置多个不同的签到任务。HTTP 模式适合各类 API 接口签到，脚本模式适合复杂网页或校园网认证。'));
+		var s_tasks = m.section(form.GridSection, 'task', _('签到任务管理'), _('支持配置多个不同的签到任务，每个任务均可独立设定不同的定时执行时间。HTTP 模式适合各类 API 接口签到，脚本模式适合复杂网页或外部打卡脚本。'));
 		s_tasks.addremove = true;
 		s_tasks.anonymous = true;
 		s_tasks.sortable = true;
 
-		o = s_tasks.option(form.Flag, 'enabled', _('启用状态'));
+		o = s_tasks.option(form.Flag, 'enabled', _('启用'));
 		o.rmempty = false;
 		o.default = '1';
 		o.editable = true;
@@ -75,10 +75,37 @@ return view.extend({
 		o.rmempty = false;
 		o.placeholder = '如：每日论坛打卡';
 
+		o = s_tasks.option(form.DummyValue, '_schedule_time', _('定时时间'));
+		o.textvalue = function(section_id) {
+			var h = uci.get('autosign', section_id, 'run_hour');
+			var min = uci.get('autosign', section_id, 'run_minute');
+			if (!h) h = uci.get('autosign', 'global', 'default_run_hour') || '08';
+			if (!min) min = uci.get('autosign', 'global', 'default_run_minute') || '30';
+			return '每天 ' + h + ':' + min;
+		};
+
 		o = s_tasks.option(form.ListValue, 'type', _('任务类型'));
 		o.value('http', _('HTTP(S) 请求'));
 		o.value('script', _('自定义脚本/命令'));
 		o.default = 'http';
+
+		// 弹窗编辑详细配置 - 独立定时时间
+		o = s_tasks.option(form.ListValue, 'run_hour', _('任务执行时间 (小时)'), _('请选择本任务每天执行签到的小时 (24小时制)'));
+		for (var h = 0; h < 24; h++) {
+			var val = (h < 10 ? '0' : '') + h;
+			o.value(val, val + ' 点 (' + (h < 12 ? '上午' : '下午/晚上') + ')');
+		}
+		o.default = '08';
+		o.modalonly = true;
+
+		o = s_tasks.option(form.ListValue, 'run_minute', _('任务执行时间 (分钟)'), _('请选择本任务每天执行签到的分钟'));
+		for (var min = 0; min < 60; min++) {
+			var val_min = (min < 10 ? '0' : '') + min;
+			o.value(val_min, val_min + ' 分');
+		}
+		o.default = '30';
+		o.modalonly = true;
+
 
 		// 弹窗编辑详细配置
 		o = s_tasks.option(form.ListValue, 'method', _('请求方式'));
@@ -183,7 +210,7 @@ return view.extend({
 					ui.addNotification(null, E('p', _('执行出错: ') + (err.message || err)), 'error');
 				});
 			}
-		}, [ '⚡ ' + _('立即执行签到测试') ]);
+		}, [ '⚡ ' + _('立即测试全部任务') ]);
 
 		var btn_refresh_log = E('button', {
 			'class': 'cbi-button cbi-button-neutral',
