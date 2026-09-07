@@ -1,6 +1,6 @@
 # luci-app-自动签到 (luci-app-autosign)
 
-超轻量级 OpenWrt 定时自动签到插件（支持 OpenWrt 21.02 / 23.05 / 24.10 / 25.12+ 及 iStore 应用商店）。
+OpenWrt 定时自动签到插件（支持 OpenWrt 21.02 / 23.05 / 24.10 / 25.12+ 及 iStore 应用商店）。
 
 
 ## ✨ 核心特性
