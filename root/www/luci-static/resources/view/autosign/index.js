@@ -26,24 +26,8 @@ return view.extend({
 
 		var o;
 
-		o = s_gen.option(form.Flag, 'enabled', _('启用定时签到服务'), _('总开关：开启后，各签到任务将在各自设定的时间独立自动运行'));
+		o = s_gen.option(form.Flag, 'enabled', _('启用定时签到总开关'), _('总开关：开启后，各签到任务将在各自设定的时间独立自动运行。每个任务的具体执行时间请在下方任务列表中直接选择。'));
 		o.rmempty = false;
-
-		// 默认 24 小时制小时选择
-		o = s_gen.option(form.ListValue, 'default_run_hour', _('默认执行时间 (小时)'), _('新建任务时的默认小时 (每个任务可单独自定义时间)'));
-		for (var h = 0; h < 24; h++) {
-			var val = (h < 10 ? '0' : '') + h;
-			o.value(val, val + ' 点 (' + (h < 12 ? '上午' : '下午/晚上') + ')');
-		}
-		o.default = '08';
-
-		// 默认分钟选择
-		o = s_gen.option(form.ListValue, 'default_run_minute', _('默认执行时间 (分钟)'), _('新建任务时的默认分钟'));
-		for (var min = 0; min < 60; min++) {
-			var val_min = (min < 10 ? '0' : '') + min;
-			o.value(val_min, val_min + ' 分');
-		}
-		o.default = '30';
 
 		o = s_gen.option(form.Value, 'random_delay', _('防封随机延迟 (秒)'), _('在指定签到时间到达后，随机休眠 0 ~ N 秒再执行，防止每天固定时间被检测。设为 0 表示立即执行'));
 		o.datatype = 'range(0, 3600)';
@@ -61,7 +45,7 @@ return view.extend({
 		o.default = '60';
 
 		// ==================== 2. 签到任务管理 ====================
-		var s_tasks = m.section(form.GridSection, 'task', _('签到任务管理'), _('支持配置多个不同的签到任务，每个任务均可独立设定不同的定时执行时间。HTTP 模式适合各类 API 接口签到，脚本模式适合复杂网页或外部打卡脚本。'));
+		var s_tasks = m.section(form.GridSection, 'task', _('签到任务管理'), _('支持配置多个不同的签到任务。每个任务均可在此直接点击下拉菜单设置独立的【执行小时】和【执行分钟】（如 08点 30分、12点 00分），彼此完全独立。点击右侧【修改】可编辑接口 URL 或脚本命令。'));
 		s_tasks.addremove = true;
 		s_tasks.anonymous = true;
 		s_tasks.sortable = true;
@@ -73,38 +57,34 @@ return view.extend({
 
 		o = s_tasks.option(form.Value, 'name', _('任务名称'));
 		o.rmempty = false;
-		o.placeholder = '如：每日论坛打卡';
+		o.placeholder = '如：每日打卡';
+		o.editable = true;
 
-		o = s_tasks.option(form.DummyValue, '_schedule_time', _('定时时间'));
-		o.textvalue = function(section_id) {
-			var h = uci.get('autosign', section_id, 'run_hour');
-			var min = uci.get('autosign', section_id, 'run_minute');
-			if (!h) h = uci.get('autosign', 'global', 'default_run_hour') || '08';
-			if (!min) min = uci.get('autosign', 'global', 'default_run_minute') || '30';
-			return '每天 ' + h + ':' + min;
-		};
-
-		o = s_tasks.option(form.ListValue, 'type', _('任务类型'));
-		o.value('http', _('HTTP(S) 请求'));
-		o.value('script', _('自定义脚本/命令'));
-		o.default = 'http';
-
-		// 弹窗编辑详细配置 - 独立定时时间
-		o = s_tasks.option(form.ListValue, 'run_hour', _('任务执行时间 (小时)'), _('请选择本任务每天执行签到的小时 (24小时制)'));
+		// 独立定时时间 - 直接在表格中可选择
+		o = s_tasks.option(form.ListValue, 'run_hour', _('执行小时'));
 		for (var h = 0; h < 24; h++) {
 			var val = (h < 10 ? '0' : '') + h;
-			o.value(val, val + ' 点 (' + (h < 12 ? '上午' : '下午/晚上') + ')');
+			o.value(val, val + ' 点');
 		}
 		o.default = '08';
-		o.modalonly = true;
+		o.rmempty = false;
+		o.editable = true;
 
-		o = s_tasks.option(form.ListValue, 'run_minute', _('任务执行时间 (分钟)'), _('请选择本任务每天执行签到的分钟'));
+		o = s_tasks.option(form.ListValue, 'run_minute', _('执行分钟'));
 		for (var min = 0; min < 60; min++) {
 			var val_min = (min < 10 ? '0' : '') + min;
 			o.value(val_min, val_min + ' 分');
 		}
 		o.default = '30';
-		o.modalonly = true;
+		o.rmempty = false;
+		o.editable = true;
+
+		o = s_tasks.option(form.ListValue, 'type', _('任务类型'));
+		o.value('http', _('HTTP(S) 请求'));
+		o.value('script', _('自定义脚本/命令'));
+		o.default = 'http';
+		o.editable = true;
+
 
 
 		// 弹窗编辑详细配置

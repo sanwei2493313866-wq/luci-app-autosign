@@ -1,7 +1,5 @@
 config autosign 'global'
 	option enabled '0'
-	option default_run_hour '08'
-	option default_run_minute '30'
 	option random_delay '60'
 	option retry_count '3'
 	option retry_interval '60'
